@@ -269,7 +269,12 @@ static NSString *const kQMSharedSettingsPath = @"/var/mobile/Library/qianmian_en
 - (void)enterColorPickMode {
     _isColorPickMode = YES;
     
-    UIWindow *window = [UIApplication sharedApplication].keyWindow;
+    // 兼容 iOS 13+ 获取 keyWindow
+    UIWindow *window = nil;
+    for (UIWindow *w in [UIApplication sharedApplication].windows) {
+        if (w.isKeyWindow) { window = w; break; }
+    }
+    
     if (window && _colorPickOverlay.superview == nil) {
         _colorPickOverlay.frame = window.bounds;
         _pickHintLabel.frame = CGRectMake(0, 0, 240, 60);
@@ -380,7 +385,12 @@ static NSString *const kQMSharedSettingsPath = @"/var/mobile/Library/qianmian_en
     CGSize size = [UIScreen mainScreen].bounds.size;
     UIGraphicsBeginImageContextWithOptions(size, YES, 0);
     
-    UIWindow *window = [UIApplication sharedApplication].keyWindow;
+    // 兼容 iOS 13+ 获取 keyWindow
+    UIWindow *window = nil;
+    for (UIWindow *w in [UIApplication sharedApplication].windows) {
+        if (w.isKeyWindow) { window = w; break; }
+    }
+    
     [window drawViewHierarchyInRect:window.bounds afterScreenUpdates:NO];
     
     UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
