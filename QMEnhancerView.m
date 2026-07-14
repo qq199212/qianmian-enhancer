@@ -31,6 +31,42 @@ static NSString *const kQMSharedSettingsPath = @"/var/mobile/Library/qianmian_en
 
 @implementation QMEnhancerView
 
+#pragma mark - 点击修复（控制面板超出范围也能点）
+
+- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
+    UIView *result = [super hitTest:point withEvent:event];
+    if (result) {
+        return result;
+    }
+    
+    for (UIView *subview in self.subviews) {
+        CGPoint subPoint = [subview convertPoint:point fromView:self];
+        if (CGRectContainsPoint(subview.bounds, subPoint)) {
+            UIView *subResult = [subview hitTest:subPoint withEvent:event];
+            if (subResult) {
+                return subResult;
+            }
+        }
+    }
+    
+    return nil;
+}
+
+- (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event {
+    if ([super pointInside:point withEvent:event]) {
+        return YES;
+    }
+    
+    if (!_controlPanel.hidden) {
+        CGPoint panelPoint = [_controlPanel convertPoint:point fromView:self];
+        if (CGRectContainsPoint(_controlPanel.bounds, panelPoint)) {
+            return YES;
+        }
+    }
+    
+    return NO;
+}
+
 #pragma mark - 共享设置（进程间通信）
 
 + (NSDictionary *)sharedSettings {
