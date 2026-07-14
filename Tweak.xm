@@ -2,34 +2,30 @@
 #import <UIKit/UIKit.h>
 #import <CoreVideo/CoreVideo.h>
 #import "QMEnhancerView.h"
-#import <objc/runtime.h>
 
-static void mark(NSString *name) {
-    NSString *path = [NSString stringWithFormat:@"/tmp/qm_%@.txt", name];
-    [@"ok" writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
-}
+@interface LocalVideoPlayer : NSObject
+- (void *)preprocessFrame:(void *)frame;
+@end
 
-static void dumpMethods() {
-    Class cls = objc_getClass("LocalVideoPlayer");
-    if (!cls) {
-        mark(@"no_class");
-        return;
+%hook LocalVideoPlayer
+
+- (void *)preprocessFrame:(void *)frame {
+    void *result = %orig;
+    
+    // 假设返回的是 CVPixelBufferRef
+    if (result) {
+        static QMEnhancerView *enhancer = nil;
+        static dispatch_once_t onceToken;
+        dispatch_once(&onceToken, ^{
+            enhancer = [[QMEnhancerView alloc] init];
+        });
+        [enhancer processPixelBuffer:(CVPixelBufferRef)result];
     }
     
-    unsigned int count = 0;
-    Method *methods = class_copyMethodList(cls, &count);
-    
-    NSMutableString *result = [NSMutableString string];
-    for (unsigned int i = 0; i < count; i++) {
-        SEL sel = method_getName(methods[i]);
-        [result appendFormat:@"%s\n", sel_getName(sel)];
-    }
-    
-    free(methods);
-    
-    [result writeToFile:@"/tmp/qm_all_methods.txt" atomically:YES encoding:NSUTF8StringEncoding error:nil];
-    mark(@"dump_done");
+    return result;
 }
+
+%end
 
 %hook SpringBoard
 
@@ -65,11 +61,5 @@ static void dumpMethods() {
 %end
 
 %ctor {
-    @autoreleasepool {
-        mark(@"dylib_loaded");
-        // 延迟 3 秒后列出所有方法
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            dumpMethods();
-        });
-    }
+    @autoreleasepool {}
 }
