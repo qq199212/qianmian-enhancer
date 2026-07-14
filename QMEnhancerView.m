@@ -268,16 +268,16 @@ static NSString *const kQMSharedSettingsPath = @"/var/mobile/Library/qianmian_en
 - (void)enterColorPickMode {
     _isColorPickMode = YES;
     
-    UIWindow *mainWindow = nil;
+    UIWindow *window = nil;
     for (UIWindow *w in [UIApplication sharedApplication].windows) {
-        if (w.isKeyWindow) { mainWindow = w; break; }
+        if (w.isKeyWindow) { window = w; break; }
     }
     
-    if (mainWindow && _colorPickOverlay.superview == nil) {
-        _colorPickOverlay.frame = mainWindow.bounds;
+    if (window && _colorPickOverlay.superview == nil) {
+        _colorPickOverlay.frame = window.bounds;
         _pickHintLabel.frame = CGRectMake(0, 0, 240, 60);
-        _pickHintLabel.center = CGPointMake(mainWindow.bounds.size.width / 2, 100);
-        [mainWindow addSubview:_colorPickOverlay];
+        _pickHintLabel.center = CGPointMake(window.bounds.size.width / 2, 100);
+        [window addSubview:_colorPickOverlay];
     }
     _colorPickOverlay.hidden = NO;
     
@@ -360,7 +360,8 @@ static NSString *const kQMSharedSettingsPath = @"/var/mobile/Library/qianmian_en
 #pragma mark - 拖动
 
 - (void)handlePan:(UIPanGestureRecognizer *)gesture {
-    CGPoint translation = [gesture translationInView:_floatWindow];
+    UIView *superview = self.superview;
+    CGPoint translation = [gesture translationInView:superview];
     
     if (gesture.state == UIGestureRecognizerStateBegan) {
         _startPoint = self.center;
@@ -369,10 +370,10 @@ static NSString *const kQMSharedSettingsPath = @"/var/mobile/Library/qianmian_en
     CGPoint newCenter = CGPointMake(_startPoint.x + translation.x, _startPoint.y + translation.y);
     
     CGFloat margin = 30;
-    newCenter.x = MAX(margin, MIN([UIScreen mainScreen].bounds.size.width - margin, newCenter.x));
-    newCenter.y = MAX(margin, MIN([UIScreen mainScreen].bounds.size.height - margin, newCenter.y));
+    newCenter.x = MAX(margin, MIN(superview.bounds.size.width - margin, newCenter.x));
+    newCenter.y = MAX(margin, MIN(superview.bounds.size.height - margin, newCenter.y));
     
-    _floatWindow.center = newCenter;
+    self.center = newCenter;
 }
 
 #pragma mark - 屏幕截图和取色
@@ -522,35 +523,46 @@ static NSString *const kQMSharedSettingsPath = @"/var/mobile/Library/qianmian_en
     return finalBlend.outputImage;
 }
 
-#pragma mark - 显示（独立悬浮窗，不会消失）
+#pragma mark - 显示 + 自动重连（防止消失）
 
 - (void)showInWindow:(UIWindow *)window {
-    if (!_floatWindow) {
-        // 创建独立的高优先级 Window
-        _floatWindow = [[UIWindow alloc] initWithFrame:CGRectMake(20, window.bounds.size.height / 2, 60, 60)];
-        _floatWindow.windowLevel = UIWindowLevelAlert + 100;
-        _floatWindow.backgroundColor = [UIColor clearColor];
-        _floatWindow.hidden = NO;
-        _floatWindow.rootViewController = [[UIViewController alloc] init];
-        [_floatWindow makeKeyAndVisible];
-    }
-    
     if (self.superview) {
         [self removeFromSuperview];
     }
-    self.frame = _floatWindow.bounds;
-    [_floatWindow addSubview:self];
     
-    // 监听屏幕点亮，确保一直显示
+    // 屏幕左侧，绿色小球
+    self.frame = CGRectMake(15, window.bounds.size.height / 2, 60, 60);
+    [window addSubview:self];
+    
+    // 监听亮屏，每次重新加到最前面
     [[NSNotificationCenter defaultCenter] addObserver:self
-                                             selector:@selector(ensureVisible)
+                                             selector:@selector(checkAndReadd)
                                                  name:UIApplicationDidBecomeActiveNotification
                                                object:nil];
+    
+    // 启动定时器，每 5 秒检查一次，消失了就重新加上
+    [NSTimer scheduledTimerWithTimeInterval:5.0
+                                     target:self
+                                   selector:@selector(checkAndReadd)
+                                   userInfo:nil
+                                    repeats:YES];
 }
 
-- (void)ensureVisible {
-    _floatWindow.hidden = NO;
-    _floatWindow.windowLevel = UIWindowLevelAlert + 100;
+- (void)checkAndReadd {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        UIWindow *window = nil;
+        for (UIWindow *w in [UIApplication sharedApplication].windows) {
+            if (w.isKeyWindow) { window = w; break; }
+        }
+        
+        if (window && self.superview != window) {
+            [self removeFromSuperview];
+            [window addSubview:self];
+            [window bringSubviewToFront:self];
+        } else if (window) {
+            [window bringSubviewToFront:self];
+        }
+    });
 }
 
 - (void)toggleVisibility {
