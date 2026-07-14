@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     name: Build Tweak
-    runs-on: macos-latest
+    runs-on: macos-13
     
     steps:
       - name: Checkout
@@ -36,8 +36,10 @@ jobs:
       - name: Build Package
         run: |
           export THEOS=$HOME/theos
-          # 禁用 Phoenicia，代码本身已带 -fobjc-arc 标志
-          make package FINALPACKAGE=1 THEOS_DISABLE_PHOENICIA=1
+          # 强制禁用 Phoenicia ARC 转换
+          echo "PHOENICIA = 0" >> Makefile
+          cat Makefile
+          make package FINALPACKAGE=1
           ls -la packages/
 
       - name: Upload DEB Artifact
