@@ -16,7 +16,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          brew install ldid xz gnu-tar
+          brew install ldid xz gnu-tar dos2unix
           echo "Installed dependencies"
 
       - name: Setup Theos
@@ -32,6 +32,12 @@ jobs:
           rm -rf $THEOS/sdks
           git clone --depth 1 https://github.com/theos/sdks.git $THEOS/sdks
           ls -la $THEOS/sdks/
+
+      - name: Fix Line Endings
+        run: |
+          # 转换 control 文件为 Unix 换行格式
+          dos2unix control
+          echo "Fixed line endings"
 
       - name: Build Package
         run: |
