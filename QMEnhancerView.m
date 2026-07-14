@@ -36,7 +36,6 @@ static NSString *const kQMSharedSettingsPath = @"/var/mobile/Library/qianmian_en
 + (NSDictionary *)sharedSettings {
     NSDictionary *settings = [NSDictionary dictionaryWithContentsOfFile:kQMSharedSettingsPath];
     if (!settings) {
-        // 默认设置
         return @{
             @"zoomScale": @(1.0),
             @"colorMappingEnabled": @(NO),
@@ -122,10 +121,10 @@ static NSString *const kQMSharedSettingsPath = @"/var/mobile/Library/qianmian_en
 - (void)setupUI {
     self.backgroundColor = [UIColor clearColor];
     
-    // 悬浮按钮
+    // 悬浮按钮 - 绿色
     _floatButton = [UIButton buttonWithType:UIButtonTypeCustom];
     _floatButton.frame = self.bounds;
-    _floatButton.backgroundColor = [UIColor colorWithRed:0.2 green:0.6 blue:1.0 alpha:0.9];
+    _floatButton.backgroundColor = [UIColor colorWithRed:0.2 green:0.8 blue:0.4 alpha:0.95];
     _floatButton.layer.cornerRadius = 30;
     _floatButton.layer.borderWidth = 2;
     _floatButton.layer.borderColor = [UIColor whiteColor].CGColor;
@@ -135,7 +134,7 @@ static NSString *const kQMSharedSettingsPath = @"/var/mobile/Library/qianmian_en
     [self addSubview:_floatButton];
     
     // 控制面板
-    _controlPanel = [[UIView alloc] initWithFrame:CGRectMake(-10, 70, 240, 280)];
+    _controlPanel = [[UIView alloc] initWithFrame:CGRectMake(70, -100, 240, 280)];
     _controlPanel.backgroundColor = [UIColor colorWithWhite:0.1 alpha:0.95];
     _controlPanel.layer.cornerRadius = 12;
     _controlPanel.layer.borderWidth = 1;
@@ -269,17 +268,16 @@ static NSString *const kQMSharedSettingsPath = @"/var/mobile/Library/qianmian_en
 - (void)enterColorPickMode {
     _isColorPickMode = YES;
     
-    // 兼容 iOS 13+ 获取 keyWindow
-    UIWindow *window = nil;
+    UIWindow *mainWindow = nil;
     for (UIWindow *w in [UIApplication sharedApplication].windows) {
-        if (w.isKeyWindow) { window = w; break; }
+        if (w.isKeyWindow) { mainWindow = w; break; }
     }
     
-    if (window && _colorPickOverlay.superview == nil) {
-        _colorPickOverlay.frame = window.bounds;
+    if (mainWindow && _colorPickOverlay.superview == nil) {
+        _colorPickOverlay.frame = mainWindow.bounds;
         _pickHintLabel.frame = CGRectMake(0, 0, 240, 60);
-        _pickHintLabel.center = CGPointMake(window.bounds.size.width / 2, 100);
-        [window addSubview:_colorPickOverlay];
+        _pickHintLabel.center = CGPointMake(mainWindow.bounds.size.width / 2, 100);
+        [mainWindow addSubview:_colorPickOverlay];
     }
     _colorPickOverlay.hidden = NO;
     
@@ -297,7 +295,6 @@ static NSString *const kQMSharedSettingsPath = @"/var/mobile/Library/qianmian_en
 - (void)handleColorPickTap:(UITapGestureRecognizer *)gesture {
     CGPoint tapPoint = [gesture locationInView:_colorPickOverlay];
     
-    // 截取屏幕并获取点击位置的颜色
     UIImage *screenshot = [self captureScreen];
     if (screenshot) {
         CGFloat scale = [UIScreen mainScreen].scale;
@@ -363,8 +360,7 @@ static NSString *const kQMSharedSettingsPath = @"/var/mobile/Library/qianmian_en
 #pragma mark - 拖动
 
 - (void)handlePan:(UIPanGestureRecognizer *)gesture {
-    UIView *superview = self.superview;
-    CGPoint translation = [gesture translationInView:superview];
+    CGPoint translation = [gesture translationInView:_floatWindow];
     
     if (gesture.state == UIGestureRecognizerStateBegan) {
         _startPoint = self.center;
@@ -373,10 +369,10 @@ static NSString *const kQMSharedSettingsPath = @"/var/mobile/Library/qianmian_en
     CGPoint newCenter = CGPointMake(_startPoint.x + translation.x, _startPoint.y + translation.y);
     
     CGFloat margin = 30;
-    newCenter.x = MAX(margin, MIN(superview.bounds.size.width - margin, newCenter.x));
-    newCenter.y = MAX(margin, MIN(superview.bounds.size.height - margin, newCenter.y));
+    newCenter.x = MAX(margin, MIN([UIScreen mainScreen].bounds.size.width - margin, newCenter.x));
+    newCenter.y = MAX(margin, MIN([UIScreen mainScreen].bounds.size.height - margin, newCenter.y));
     
-    self.center = newCenter;
+    _floatWindow.center = newCenter;
 }
 
 #pragma mark - 屏幕截图和取色
@@ -385,7 +381,6 @@ static NSString *const kQMSharedSettingsPath = @"/var/mobile/Library/qianmian_en
     CGSize size = [UIScreen mainScreen].bounds.size;
     UIGraphicsBeginImageContextWithOptions(size, YES, 0);
     
-    // 兼容 iOS 13+ 获取 keyWindow
     UIWindow *window = nil;
     for (UIWindow *w in [UIApplication sharedApplication].windows) {
         if (w.isKeyWindow) { window = w; break; }
@@ -430,14 +425,12 @@ static NSString *const kQMSharedSettingsPath = @"/var/mobile/Library/qianmian_en
 - (void)processPixelBuffer:(CVPixelBufferRef)pixelBuffer {
     if (!pixelBuffer) return;
     
-    // 从共享文件读取最新设置（支持跨进程，实时生效）
     CGFloat zoomScale = [[self class] currentZoomScale];
     BOOL colorEnabled = [[self class] isColorMappingEnabled];
     UIColor *mapColor = [[self class] currentMappingColor];
     CGFloat mixIntensity = [[self class] currentColorMixIntensity];
     BOOL softGlow = [[self class] isSoftGlowEnabled];
     
-    // 如果没有启用任何效果，直接返回
     if (zoomScale <= 1.01 && !colorEnabled && !softGlow) {
         return;
     }
@@ -447,10 +440,9 @@ static NSString *const kQMSharedSettingsPath = @"/var/mobile/Library/qianmian_en
     size_t width = CVPixelBufferGetWidth(pixelBuffer);
     size_t height = CVPixelBufferGetHeight(pixelBuffer);
     
-    // 创建CIImage
     CIImage *resultImage = [CIImage imageWithCVPixelBuffer:pixelBuffer];
     
-    // 1. 应用缩放（中心裁剪放大）
+    // 1. 缩放
     if (zoomScale > 1.01) {
         CGFloat scale = zoomScale;
         CGFloat cropWidth = width / scale;
@@ -463,7 +455,7 @@ static NSString *const kQMSharedSettingsPath = @"/var/mobile/Library/qianmian_en
         resultImage = [resultImage imageByApplyingTransform:CGAffineTransformMakeScale(scale, scale)];
     }
     
-    // 2. 应用颜色映射（实时，强度可调）
+    // 2. 颜色映射
     if (colorEnabled && mapColor) {
         CGFloat r, g, b, a;
         [mapColor getRed:&r green:&g blue:&b alpha:&a];
@@ -471,7 +463,6 @@ static NSString *const kQMSharedSettingsPath = @"/var/mobile/Library/qianmian_en
         CIFilter *colorMatrixFilter = [CIFilter filterWithName:@"CIColorMatrix"];
         [colorMatrixFilter setValue:resultImage forKey:kCIInputImageKey];
         
-        // 动态混合强度：0 = 原色，1 = 完全映射色
         CGFloat mix = mixIntensity;
         CIVector *rVector = [CIVector vectorWithX:r * mix + (1-mix) Y:0 Z:0 W:0];
         CIVector *gVector = [CIVector vectorWithX:0 Y:g * mix + (1-mix) Z:0 W:0];
@@ -488,12 +479,11 @@ static NSString *const kQMSharedSettingsPath = @"/var/mobile/Library/qianmian_en
         resultImage = colorMatrixFilter.outputImage;
     }
     
-    // 3. 应用柔光滤镜
+    // 3. 柔光滤镜
     if (softGlow) {
         resultImage = [self applySoftGlowToImage:resultImage];
     }
     
-    // 渲染回像素缓冲区
     if (resultImage) {
         [_ciContext render:resultImage toCVPixelBuffer:pixelBuffer];
     }
@@ -504,35 +494,27 @@ static NSString *const kQMSharedSettingsPath = @"/var/mobile/Library/qianmian_en
 #pragma mark - 柔光滤镜效果
 
 - (CIImage *)applySoftGlowToImage:(CIImage *)inputImage {
-    // 柔光效果：提亮阴影 + 高斯模糊 + 滤色混合
-    // 模拟摄影柔光镜效果，画面更柔和梦幻
-    
-    // 第一步：提亮阴影，降低对比
     CIFilter *shadowAdjust = [CIFilter filterWithName:@"CIHighlightShadowAdjust"];
     [shadowAdjust setValue:inputImage forKey:kCIInputImageKey];
     [shadowAdjust setValue:@(0.3) forKey:@"inputShadowAmount"];
     [shadowAdjust setValue:@(-0.1) forKey:@"inputHighlightAmount"];
     CIImage *adjustedImage = shadowAdjust.outputImage;
     
-    // 第二步：创建模糊层
     CIFilter *blurFilter = [CIFilter filterWithName:@"CIGaussianBlur"];
     [blurFilter setValue:adjustedImage forKey:kCIInputImageKey];
     [blurFilter setValue:@(4.0) forKey:kCIInputRadiusKey];
     CIImage *blurredImage = blurFilter.outputImage;
     
-    // 第三步：滤色混合（Screen Blend）- 产生发光效果
     CIFilter *blendFilter = [CIFilter filterWithName:@"CIScreenBlendMode"];
     [blendFilter setValue:blurredImage forKey:kCIInputImageKey];
     [blendFilter setValue:adjustedImage forKey:kCIInputBackgroundImageKey];
     CIImage *blendedImage = blendFilter.outputImage;
     
-    // 第四步：调整不透明度后叠加回原图
     CIFilter *opacityFilter = [CIFilter filterWithName:@"CIColorMatrix"];
     [opacityFilter setValue:blendedImage forKey:kCIInputImageKey];
     CIVector *aVector = [CIVector vectorWithX:0 Y:0 Z:0 W:0.6];
     [opacityFilter setValue:aVector forKey:@"inputAVector"];
     
-    // 第五步：最终混合
     CIFilter *finalBlend = [CIFilter filterWithName:@"CISourceOverCompositing"];
     [finalBlend setValue:opacityFilter.outputImage forKey:kCIInputImageKey];
     [finalBlend setValue:adjustedImage forKey:kCIInputBackgroundImageKey];
@@ -540,15 +522,35 @@ static NSString *const kQMSharedSettingsPath = @"/var/mobile/Library/qianmian_en
     return finalBlend.outputImage;
 }
 
-#pragma mark - 显示
+#pragma mark - 显示（独立悬浮窗，不会消失）
 
 - (void)showInWindow:(UIWindow *)window {
+    if (!_floatWindow) {
+        // 创建独立的高优先级 Window
+        _floatWindow = [[UIWindow alloc] initWithFrame:CGRectMake(20, window.bounds.size.height / 2, 60, 60)];
+        _floatWindow.windowLevel = UIWindowLevelAlert + 100;
+        _floatWindow.backgroundColor = [UIColor clearColor];
+        _floatWindow.hidden = NO;
+        _floatWindow.rootViewController = [[UIViewController alloc] init];
+        [_floatWindow makeKeyAndVisible];
+    }
+    
     if (self.superview) {
         [self removeFromSuperview];
     }
+    self.frame = _floatWindow.bounds;
+    [_floatWindow addSubview:self];
     
-    self.frame = CGRectMake(window.bounds.size.width - 80, window.bounds.size.height / 2, 60, 60);
-    [window addSubview:self];
+    // 监听屏幕点亮，确保一直显示
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(ensureVisible)
+                                                 name:UIApplicationDidBecomeActiveNotification
+                                               object:nil];
+}
+
+- (void)ensureVisible {
+    _floatWindow.hidden = NO;
+    _floatWindow.windowLevel = UIWindowLevelAlert + 100;
 }
 
 - (void)toggleVisibility {
