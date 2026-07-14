@@ -23,17 +23,22 @@ jobs:
         run: |
           export THEOS=$HOME/theos
           git clone --recursive https://github.com/theos/theos.git $THEOS
-          # 确保所有子模块完整拉取
           cd $THEOS && git submodule update --init --recursive
           echo "THEOS=$THEOS" >> $GITHUB_ENV
           echo "$THEOS/bin" >> $GITHUB_PATH
 
       - name: Download iOS SDK
         run: |
-          # 先删除默认空目录，再克隆完整 SDK 仓库
           rm -rf $THEOS/sdks
           git clone --depth 1 https://github.com/theos/sdks.git $THEOS/sdks
           ls -la $THEOS/sdks/
+
+      - name: Build Phoenicia
+        run: |
+          # 编译 Theos 的 Phoenicia 工具
+          cd $THEOS/vendor/phoenicia
+          make
+          ls -la
 
       - name: Build Package
         run: |
