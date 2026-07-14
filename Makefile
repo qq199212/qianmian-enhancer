@@ -11,6 +11,6 @@ TWEAK_NAME = QianmianEnhancer
 
 QianmianEnhancer_FILES = Tweak.xm QMEnhancerView.m
 QianmianEnhancer_FRAMEWORKS = UIKit CoreGraphics CoreImage CoreVideo QuartzCore
-QianmianEnhancer_CFLAGS = -fobjc-arc
+QianmianEnhancer_CFLAGS = -fobjc-arc -Wno-deprecated-declarations
 
 include $(THEOS_MAKE_PATH)/tweak.mk
