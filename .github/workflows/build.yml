@@ -28,11 +28,11 @@ jobs:
 
       - name: Download iOS SDK
         run: |
-          # 从 Theos 官方 SDK 仓库获取（更可靠）
+          # 从 Theos 官方 SDK 仓库获取所有 SDK
           git clone --depth 1 https://github.com/theos/sdks.git $THEOS/sdks-repo
           mkdir -p $THEOS/sdks
-          # 使用 iOS 15.5 SDK
-          cp -r $THEOS/sdks-repo/iPhoneOS15.5.sdk $THEOS/sdks/
+          # 复制全部 SDK，Theos 会自动选最合适的
+          cp -r $THEOS/sdks-repo/*.sdk $THEOS/sdks/
           ls -la $THEOS/sdks/
 
       - name: Build Package
