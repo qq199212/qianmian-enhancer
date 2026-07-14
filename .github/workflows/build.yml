@@ -36,9 +36,7 @@ jobs:
       - name: Build Package
         run: |
           export THEOS=$HOME/theos
-          # 强制禁用 Phoenicia ARC 转换
           echo "PHOENICIA = 0" >> Makefile
-          cat Makefile
           make package FINALPACKAGE=1
           ls -la packages/
 
