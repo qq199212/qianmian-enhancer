@@ -23,6 +23,8 @@ jobs:
         run: |
           export THEOS=$HOME/theos
           git clone --recursive https://github.com/theos/theos.git $THEOS
+          # 确保所有子模块完整拉取
+          cd $THEOS && git submodule update --init --recursive
           echo "THEOS=$THEOS" >> $GITHUB_ENV
           echo "$THEOS/bin" >> $GITHUB_PATH
 
