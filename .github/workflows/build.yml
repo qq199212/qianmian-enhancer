@@ -33,17 +33,11 @@ jobs:
           git clone --depth 1 https://github.com/theos/sdks.git $THEOS/sdks
           ls -la $THEOS/sdks/
 
-      - name: Build Phoenicia
-        run: |
-          # 编译 Theos 的 Phoenicia 工具
-          cd $THEOS/vendor/phoenicia
-          make
-          ls -la
-
       - name: Build Package
         run: |
           export THEOS=$HOME/theos
-          make package FINALPACKAGE=1
+          # 禁用 Phoenicia，代码本身已带 -fobjc-arc 标志
+          make package FINALPACKAGE=1 THEOS_DISABLE_PHOENICIA=1
           ls -la packages/
 
       - name: Upload DEB Artifact
