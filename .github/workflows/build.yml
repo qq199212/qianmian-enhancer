@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     name: Build Tweak
-    runs-on: macos-13
+    runs-on: macos-latest
     
     steps:
       - name: Checkout
@@ -26,6 +26,8 @@ jobs:
           cd $THEOS && git submodule update --init --recursive
           echo "THEOS=$THEOS" >> $GITHUB_ENV
           echo "$THEOS/bin" >> $GITHUB_PATH
+          # 看看 vendor 目录里有啥
+          ls -la $THEOS/vendor/
 
       - name: Download iOS SDK
         run: |
@@ -36,7 +38,10 @@ jobs:
       - name: Build Package
         run: |
           export THEOS=$HOME/theos
-          echo "PHOENICIA = 0" >> Makefile
+          # 禁用 ARC 自动转换
+          echo "THEOS_NO_PHOENICIA = 1" >> Makefile
+          echo "ARCCONVERSION = 0" >> Makefile
+          cat Makefile
           make package FINALPACKAGE=1
           ls -la packages/
 
