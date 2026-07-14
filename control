@@ -1,0 +1,10 @@
+Package: com.taokk3.qianmian.enhancer
+Name: 千面-VCAM增强版
+Depends: mobilesubstrate, com.taokk3.qianmian
+Version: 1.0.0
+Architecture: iphoneos-arm64e
+Description: 千面虚拟摄像头增强插件 - 添加视频缩放和屏幕取色映射功能
+Maintainer: Enhancer
+Author: Enhancer
+Section: Tweaks
+Pre-Depends: rootless-compat(>= 0.9)
