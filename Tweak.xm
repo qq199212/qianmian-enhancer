@@ -2,34 +2,18 @@
 #import <UIKit/UIKit.h>
 #import <CoreVideo/CoreVideo.h>
 #import "QMEnhancerView.h"
+#import <objc/runtime.h>
 
-@interface LocalVideoPlayer : NSObject
-@property (assign) CVPixelBufferRef currentPixelBuffer;
-@end
-
-%hook LocalVideoPlayer
-
-- (CVPixelBufferRef)currentPixelBuffer {
-    CVPixelBufferRef buffer = %orig;
-    
-    if (buffer) {
-        static QMEnhancerView *enhancer = nil;
-        static dispatch_once_t onceToken;
-        dispatch_once(&onceToken, ^{
-            enhancer = [[QMEnhancerView alloc] init];
-        });
-        [enhancer processPixelBuffer:buffer];
-    }
-    
-    return buffer;
+static void mark(NSString *name) {
+    NSString *path = [NSString stringWithFormat:@"/tmp/qm_%@.txt", name];
+    [@"ok" writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
 }
-
-%end
 
 %hook SpringBoard
 
 - (void)applicationDidFinishLaunching:(id)application {
     %orig;
+    mark(@"springboard_process");
     
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(6.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         @try {
@@ -60,5 +44,31 @@
 %end
 
 %ctor {
-    @autoreleasepool {}
+    @autoreleasepool {
+        // 延迟 2 秒检查
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            
+            // 检查有没有 LocalVideoPlayer 类（只有视频进程才有）
+            Class cls = objc_getClass("LocalVideoPlayer");
+            if (cls) {
+                mark(@"video_process_injected");
+                
+                // 同时测试 hook setCurrentPixelBuffer:
+                Method setter = class_getInstanceMethod(cls, @selector(setCurrentPixelBuffer:));
+                if (setter) {
+                    mark(@"setter_exists");
+                }
+                
+                Method getter = class_getInstanceMethod(cls, @selector(currentPixelBuffer));
+                if (getter) {
+                    mark(@"getter_exists");
+                }
+                
+                Method update = class_getInstanceMethod(cls, @selector(updateCurrentBuffer:));
+                if (update) {
+                    mark(@"update_exists");
+                }
+            }
+        });
+    }
 }
