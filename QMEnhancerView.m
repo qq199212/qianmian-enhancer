@@ -2,8 +2,8 @@
 #import <CoreImage/CoreImage.h>
 #import <CoreVideo/CoreVideo.h>
 
-// 共享设置文件路径 - 两个进程都能访问
-static NSString *const kQMSharedSettingsPath = @"/var/mobile/Library/qianmian_enhancer_settings.plist";
+// 共享设置文件路径 - 改到 /tmp/ 所有进程都能访问
+static NSString *const kQMSharedSettingsPath = @"/tmp/qianmian_enhancer_settings.plist";
 
 @interface QMEnhancerView ()
 
