@@ -2,10 +2,8 @@ ARCHS = arm64 arm64e
 TARGET = iphone:clang:16.5:15.0
 INSTALL_TARGET_PROCESSES = SpringBoard mediaserverd
 
-# Rootless 越狱打包
+# 必须保留！iOS 16 rootless 越狱才能注入
 THEOS_PACKAGE_SCHEME = rootless
-
-# 禁用 Phoenicia ARC 自动转换
 THEOS_NO_PHOENICIA = 1
 
 include $(THEOS)/makefiles/common.mk
