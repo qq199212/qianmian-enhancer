@@ -2,53 +2,39 @@
 #import <UIKit/UIKit.h>
 #import <CoreVideo/CoreVideo.h>
 #import "QMEnhancerView.h"
-#import <substrate.h>
-#import <sys/sysctl.h>
-
-@interface LocalVideoPlayer : NSObject
-- (void)renderReplacementToPixelBuffer:(CVPixelBufferRef)pixelBuffer;
-@end
+#import <objc/runtime.h>
 
 static void mark(NSString *name) {
     NSString *path = [NSString stringWithFormat:@"/tmp/qm_%@.txt", name];
     [@"ok" writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
 }
 
-// 获取当前进程名
-static NSString *currentProcessName() {
-    char name[256];
-    size_t size = sizeof(name);
-    if (sysctlbyname("kern.proc.name", name, &size, NULL, 0) == 0) {
-        return [NSString stringWithUTF8String:name];
+static void dumpMethods() {
+    Class cls = objc_getClass("LocalVideoPlayer");
+    if (!cls) {
+        mark(@"no_class");
+        return;
     }
-    return @"unknown";
-}
-
-// 原方法指针
-static void (*orig_render)(id self, SEL _cmd, CVPixelBufferRef pixelBuffer);
-
-// 替换后的方法
-void new_render(id self, SEL _cmd, CVPixelBufferRef pixelBuffer) {
-    mark(@"hook_called");
-    orig_render(self, _cmd, pixelBuffer);
     
-    if (pixelBuffer) {
-        static QMEnhancerView *enhancer = nil;
-        static dispatch_once_t onceToken;
-        dispatch_once(&onceToken, ^{
-            enhancer = [[QMEnhancerView alloc] init];
-            mark(@"enhancer_created");
-        });
-        [enhancer processPixelBuffer:pixelBuffer];
+    unsigned int count = 0;
+    Method *methods = class_copyMethodList(cls, &count);
+    
+    NSMutableString *result = [NSMutableString string];
+    for (unsigned int i = 0; i < count; i++) {
+        SEL sel = method_getName(methods[i]);
+        [result appendFormat:@"%s\n", sel_getName(sel)];
     }
+    
+    free(methods);
+    
+    [result writeToFile:@"/tmp/qm_all_methods.txt" atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    mark(@"dump_done");
 }
 
 %hook SpringBoard
 
 - (void)applicationDidFinishLaunching:(id)application {
     %orig;
-    
-    mark(@"springboard_launch");
     
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(6.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         @try {
@@ -71,11 +57,8 @@ void new_render(id self, SEL _cmd, CVPixelBufferRef pixelBuffer) {
             if (window) {
                 QMEnhancerView *enhancer = [QMEnhancerView sharedInstance];
                 [enhancer showInWindow:window];
-                mark(@"ui_shown");
             }
-        } @catch (NSException *e) {
-            mark(@"ui_error");
-        }
+        } @catch (NSException *e) {}
     });
 }
 
@@ -83,25 +66,10 @@ void new_render(id self, SEL _cmd, CVPixelBufferRef pixelBuffer) {
 
 %ctor {
     @autoreleasepool {
-        NSString *procName = currentProcessName();
-        mark([NSString stringWithFormat:@"dylib_%@", procName]);
-        
-        // 延迟一点再 hook，确保类已经加载
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            Class cls = objc_getClass("LocalVideoPlayer");
-            if (cls) {
-                mark(@"class_found");
-                Method m = class_getInstanceMethod(cls, @selector(renderReplacementToPixelBuffer:));
-                if (m) {
-                    mark(@"method_found");
-                    MSHookMessageEx(cls, @selector(renderReplacementToPixelBuffer:), (IMP)&new_render, (IMP *)&orig_render);
-                    mark(@"hook_done");
-                } else {
-                    mark(@"method_not_found");
-                }
-            } else {
-                mark(@"class_not_found");
-            }
+        mark(@"dylib_loaded");
+        // 延迟 3 秒后列出所有方法
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            dumpMethods();
         });
     }
 }
