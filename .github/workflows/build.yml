@@ -28,7 +28,8 @@ jobs:
 
       - name: Download iOS SDK
         run: |
-          # 直接克隆 SDK 仓库到 Theos 的 sdks 目录
+          # 先删除默认空目录，再克隆完整 SDK 仓库
+          rm -rf $THEOS/sdks
           git clone --depth 1 https://github.com/theos/sdks.git $THEOS/sdks
           ls -la $THEOS/sdks/
 
