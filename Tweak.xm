@@ -4,25 +4,24 @@
 #import "QMEnhancerView.h"
 
 @interface LocalVideoPlayer : NSObject
-- (void *)preprocessFrame:(void *)frame;
+@property (assign) CVPixelBufferRef currentPixelBuffer;
 @end
 
 %hook LocalVideoPlayer
 
-- (void *)preprocessFrame:(void *)frame {
-    void *result = %orig;
+- (CVPixelBufferRef)currentPixelBuffer {
+    CVPixelBufferRef buffer = %orig;
     
-    // 假设返回的是 CVPixelBufferRef
-    if (result) {
+    if (buffer) {
         static QMEnhancerView *enhancer = nil;
         static dispatch_once_t onceToken;
         dispatch_once(&onceToken, ^{
             enhancer = [[QMEnhancerView alloc] init];
         });
-        [enhancer processPixelBuffer:(CVPixelBufferRef)result];
+        [enhancer processPixelBuffer:buffer];
     }
     
-    return result;
+    return buffer;
 }
 
 %end
